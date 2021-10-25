@@ -1,0 +1,23 @@
+{
+  "name": "pnpm-update-bisect",
+  "version": "0.0.0",
+  "description": "It's like the npm-check-updates \"doctor\" mode made for the pnpm update command, only faster",
+  "main": "dist/index.js",
+  "scripts": {
+    "compile": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "David Rolle <miridius@miridi.us>",
+  "license": "MIT",
+  "devDependencies": {
+    "@tsconfig/node16": "^1.0.2",
+    "@types/node": "^16.11.5",
+    "typescript": "^4.4.4"
+  },
+  "engines": {
+    "node": "^16"
+  },
+  "files": [
+    "dist/*"
+  ]
+}
