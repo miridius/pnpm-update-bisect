@@ -1,0 +1,19 @@
+{
+  "name": "test-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon -w ../dist -x pnpm pub",
+    "test": "echo \"Error: no test specified\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pnpm-update-bisect": "link:.."
+  },
+  "devDependencies": {
+    "nodemon": "2.0.14"
+  }
+}
