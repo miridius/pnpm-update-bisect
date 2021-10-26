@@ -55,9 +55,9 @@ const test = async (): Promise<boolean> =>
 
 const preChecks = async () => {
   if (await stat(backupFile).catch(() => {})) {
-    error('package.json.bak already exists, probably from a failed previous run');
-    warn('To restore the backup, run:', chalk.green('mv package.json.bak package.json'));
-    warn('To discard it, run:', chalk.green('rm package.json.bak'));
+    error(`${backupFileName} already exists, probably from a failed previous run`);
+    warn('To restore the backup, run:', chalk.green(`mv ${backupFileName} package.json`));
+    warn('To discard it, run:', chalk.green(`rm ${backupFileName}`));
     process.exit(1);
   }
   await pnpm(['install-test']).catch(async (e) => {
