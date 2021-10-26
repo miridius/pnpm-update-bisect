@@ -20,7 +20,7 @@ pnpm pub # or pnpm pnpm-update-bisect
 Without installation:
 
 ```bash
-pnpm dgx pnpm-update-bisect
+pnpm dlx pnpm-update-bisect
 ```
 
 ## Warning
