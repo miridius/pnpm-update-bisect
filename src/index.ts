@@ -25,8 +25,8 @@ const deleteBackup = async () => {
 
 const debug = (...args: unknown[]) => console.debug(chalk.blue(...args));
 const info = (...args: unknown[]) => console.info(chalk.green(...args));
-const warn = (...args: unknown[]) => console.warn(chalk.yellow(...args));
-const error = (...args: unknown[]) => console.error(chalk.red(...args));
+// const warn = (...args: unknown[]) => console.warn(chalk.yellow(...args));
+// const error = (...args: unknown[]) => console.error(chalk.red(...args));
 
 const pnpm = (args: string[], output = true) => {
   const file = 'pnpm';
@@ -54,16 +54,13 @@ const test = async (): Promise<boolean> =>
   (await pnpm(['test'], false).catch((e) => e)).exitCode === 0;
 
 const preChecks = async () => {
-  if (await stat(backupFile).catch(() => {})) {
-    error(`${backupFileName} already exists, probably from a failed previous run`);
-    warn('To restore the backup, run:', chalk.green(`mv ${backupFileName} package.json`));
-    warn('To discard it, run:', chalk.green(`rm ${backupFileName}`));
-    process.exit(1);
+  if (await stat(backupFile).catch(() => undefined)) {
+    throw new Error(chalk`{red ${backupFileName} already exists, probably from a failed previous run}
+{yellow To restore the backup, run:} {green mv ${backupFileName} package.json}
+{yellow To discard it, run:} {green rm ${backupFileName}}`);
   }
-  await pnpm(['install-test']).catch(async (e) => {
-    // error(e);
-    error('Failed before we even started!');
-    process.exit(1);
+  await pnpm(['install-test']).catch(async () => {
+    throw new Error(chalk.red('Failed before we even started!'));
   });
 };
 
@@ -79,7 +76,6 @@ const smartUpdateLatest = async () => {
       'Upgrading:',
       ...packages.map((p) => chalk[statuses.get(p) || 'white'](p))
     );
-  printStatuses();
 
   const testPkgs = async (suspects: string[]): Promise<boolean> => {
     await up(withStatus('green').concat(suspects), true);
@@ -133,6 +129,7 @@ const smartUpdate = async (latest = true) => {
   await deleteBackup();
 };
 
+info('Making sure dependencies are installed and tests work before we start');
 await preChecks();
 info('Attempting to update all packages to latest version');
 await smartUpdate();
