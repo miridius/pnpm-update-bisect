@@ -35,7 +35,7 @@ const pnpm = (args: string[], output = true) => {
   return subprocess;
 };
 
-const up = (packages: string[], latest = true) =>
+const up = (packages: string[], latest: boolean) =>
   pnpm(['up'].concat(packages, latest ? ['--latest'] : []), false);
 
 const outdated = async (latest = true) => {
@@ -64,11 +64,12 @@ const preChecks = async () => {
   });
 };
 
-const smartUpdateLatest = async () => {
+const smartUpdateAll = async () => {
+  await saveBackup();
   const packages = await outdated(true);
   if (!packages.length) return;
 
-  type Status = 'green' | 'yellow' | 'red' | undefined;
+  type Status = 'green' | 'yellow' | 'red' | 'magenta' | undefined;
   const statuses: Map<string, Status> = new Map();
   const withStatus = (s: Status) => packages.filter((p) => statuses.get(p) === s);
   const printStatuses = () =>
@@ -77,11 +78,11 @@ const smartUpdateLatest = async () => {
       ...packages.map((p) => chalk[statuses.get(p) || 'white'](p))
     );
 
-  const testPkgs = async (suspects: string[]): Promise<boolean> => {
-    await up(withStatus('green').concat(suspects), true);
-    const result = await test();
-    await restoreBackup();
-    return result;
+  const tryUpdate = async (suspects: string[], latest = true): Promise<boolean> => {
+    await up(suspects, latest);
+    const passed = await test();
+    passed ? await saveBackup() : await restoreBackup();
+    return passed;
   };
 
   while (withStatus(undefined).length || withStatus('yellow').length) {
@@ -90,50 +91,40 @@ const smartUpdateLatest = async () => {
       // test half of the suspects at a time
       const others = suspects.splice(Math.floor(suspects.length / 2));
       // const others = suspects.filter((_, i) => i % 2 === 1);
-      if (await testPkgs(suspects)) {
+      if (await tryUpdate(suspects)) {
         suspects.forEach((p) => statuses.set(p, 'green'));
       } else {
         others.forEach((p) => statuses.delete(p));
       }
     } else {
       const unknowns = withStatus(undefined);
-      const newStatus = (await testPkgs(unknowns)) ? 'green' : 'yellow';
+      const newStatus = (await tryUpdate(unknowns)) ? 'green' : 'yellow';
       unknowns.forEach((p) => statuses.set(p, newStatus));
     }
     // if only one package is suspected it must be the culprit
-    if (withStatus('yellow').length === 1) {
-      statuses.set(withStatus('yellow')[0], 'red');
+    const remainingSuspects = withStatus('yellow');
+    if (remainingSuspects.length === 1) {
+      debug(
+        remainingSuspects[0],
+        'cannot be updated to latest version. Attempting compatible version update.'
+      );
+      statuses.set(
+        remainingSuspects[0],
+        // check if we can at least update it to a compatible version
+        (await tryUpdate(remainingSuspects, false)) ? 'magenta' : 'red'
+      );
     }
     printStatuses();
   }
 
-  const good = withStatus('green');
-  good.length ? await up(good, true) : await pnpm(['install'], false);
-};
-
-const smartUpdateCompatible = async () => {
-  // pnpm outdated --compatible doesn't show any upgrades (maybe a pnpm bug?)
-  // but pnpm update (without --latest) does install them, so this is the best
-  // that we can do for now
-  await up([], false);
-  if (!(await test())) {
-    // we can't selectively do minor updates so we have to roll back them all
-    await restoreBackup();
-    await pnpm(['install'], false);
-  }
-};
-
-const smartUpdate = async (latest = true) => {
-  await saveBackup();
-  latest ? await smartUpdateLatest() : await smartUpdateCompatible();
+  await pnpm(['install-test']);
   await deleteBackup();
 };
 
 info('Making sure dependencies are installed and tests work before we start');
 await preChecks();
+
 info('Attempting to update all packages to latest version');
-await smartUpdate();
-info('Attempting to update all packages to compatible versions');
-await smartUpdate(false);
+await smartUpdateAll();
 
 info('Update complete');
