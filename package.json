@@ -2,7 +2,7 @@
   "name": "pnpm-update-bisect",
   "version": "0.2.0",
   "description": "It's like the npm-check-updates \"doctor\" mode made for the pnpm update command, only faster",
-  "main": "dist",
+  "exports": "./dist",
   "scripts": {
     "dev": "run-p compile:watch start:watch",
     "lint": "eslint src",
@@ -18,7 +18,7 @@
   "license": "MIT",
   "dependencies": {
     "chalk": "^5.3.0",
-    "execa": "^5.1.1"
+    "execa": "^8.0.1"
   },
   "devDependencies": {
     "@tsconfig/node18": "^18.2.4",
@@ -37,7 +37,7 @@
   },
   "type": "module",
   "engines": {
-    "node": "^18"
+    "node": ">=16"
   },
   "files": [
     "dist/*"

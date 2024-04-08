@@ -1,7 +1,7 @@
 import chalk from 'chalk';
-import execa from 'execa';
-import { copyFile, stat, unlink } from 'fs/promises';
-import { resolve } from 'path';
+import { execa } from 'execa';
+import { copyFile, stat, unlink } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 const filesToBackup = ['package.json', 'pnpm-lock.yaml'];
 
