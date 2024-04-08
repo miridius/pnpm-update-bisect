@@ -3,24 +3,34 @@ import execa from 'execa';
 import { copyFile, stat, unlink } from 'fs/promises';
 import { resolve } from 'path';
 
+const filesToBackup = ['package.json', 'pnpm-lock.yaml'];
+
+const backupName = (origName: string) => origName + '.pub-backup';
+
 const rootDir = process.argv[2] || '.';
-const packageJson = resolve(rootDir, 'package.json');
-const backupFileName = 'package.json.pub-backup';
-const backupFile = resolve(rootDir, backupFileName);
+
+const rootFile = (name: string) => resolve(rootDir, name);
+
+const copyRootFile = async (from: string, to: string) => {
+  debug(`$ cp ${from} ${to}`);
+  await copyFile(rootFile(from), rootFile(to));
+};
 
 const saveBackup = async () => {
-  debug(`$ cp package.json ${backupFileName}`);
-  await copyFile(packageJson, backupFile);
+  await Promise.all(filesToBackup.map((name) => copyRootFile(name, backupName(name))));
 };
 
 const restoreBackup = async () => {
-  debug(`$ cp ${backupFileName} package.json`);
-  await copyFile(backupFile, packageJson);
+  await Promise.all(filesToBackup.map((name) => copyRootFile(backupName(name), name)));
 };
 
 const deleteBackup = async () => {
-  debug(`$ rm ${backupFileName}`);
-  await unlink(backupFile);
+  await Promise.all(
+    filesToBackup.map(backupName).map((name) => {
+      debug(`$ rm ${name}`);
+      unlink(rootFile(name));
+    })
+  );
 };
 
 const debug = (...args: unknown[]) => console.debug(chalk.blue(...args));
@@ -54,10 +64,12 @@ const test = async (): Promise<boolean> =>
   (await pnpm(['test'], false).catch((e) => e)).exitCode === 0;
 
 const preChecks = async () => {
-  if (await stat(backupFile).catch(() => undefined)) {
-    throw new Error(chalk`{red ${backupFileName} already exists, probably from a failed previous run}
-{yellow To restore the backup, run:} {green mv ${backupFileName} package.json}
-{yellow To discard it, run:} {green rm ${backupFileName}}`);
+  for (const name of filesToBackup.map(backupName)) {
+    if (await stat(rootFile(name)).catch(() => undefined)) {
+      throw new Error(chalk`{red ${name} already exists, probably from a failed previous run}
+{yellow To restore the backup, run:} {green mv ${name} package.json}
+{yellow To discard it, run:} {green rm ${name}}`);
+    }
   }
   await pnpm(['install-test']).catch(async () => {
     throw new Error(chalk.red('Failed before we even started!'));
