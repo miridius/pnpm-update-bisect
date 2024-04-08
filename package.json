@@ -1,6 +1,6 @@
 {
   "name": "pnpm-update-bisect",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "It's like the npm-check-updates \"doctor\" mode made for the pnpm update command, only faster",
   "main": "dist",
   "scripts": {
