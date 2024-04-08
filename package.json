@@ -11,7 +11,7 @@
     "compile:watch": "tsc --watch",
     "start": "node .",
     "start:watch": "nodemon -w dist/ .",
-    "test": "echo TODO",
+    "test": "tsc",
     "release": "pnpm outdated && np"
   },
   "author": "David Rolle <miridius@miridi.us>",
