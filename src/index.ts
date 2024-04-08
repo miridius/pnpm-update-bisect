@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { execa } from 'execa';
+import { ExecaError, execa } from 'execa';
 import { copyFile, stat, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -35,8 +35,8 @@ const deleteBackup = async () => {
 
 const debug = (...args: unknown[]) => console.debug(chalk.blue(...args));
 const info = (...args: unknown[]) => console.info(chalk.green(...args));
-// const warn = (...args: unknown[]) => console.warn(chalk.yellow(...args));
-// const error = (...args: unknown[]) => console.error(chalk.red(...args));
+const warn = (...args: unknown[]) => console.warn(chalk.magenta(...args));
+const error = (...args: unknown[]) => console.error(chalk.red(...args));
 
 const pnpm = (args: string[], output = true) => {
   const file = 'pnpm';
@@ -52,16 +52,16 @@ const outdated = async (latest = true) => {
   const outdated = await pnpm(
     ['outdated', '--no-table'].concat(latest ? [] : ['--compatible']),
     false
-  ).catch((e) => e);
+  ).catch((e: ExecaError) => e);
   if (outdated.stderr) throw outdated;
   return outdated.stdout
     .split('\n')
-    .filter((p, i) => p && i % 3 == 0)
-    .map((p) => p.replace(/\s+\(dev\)$/, ''));
+    .filter((p: string, i: number) => p && i % 3 == 0)
+    .map((p: string) => p.replace(/\s+\(dev\)$/, ''));
 };
 
 const test = async (): Promise<boolean> =>
-  (await pnpm(['test'], false).catch((e) => e)).exitCode === 0;
+  (await pnpm(['test'], false).catch((e: any) => e)).exitCode === 0;
 
 const preChecks = async () => {
   for (const name of filesToBackup.map(backupName)) {
@@ -76,21 +76,27 @@ const preChecks = async () => {
   });
 };
 
-const smartUpdateAll = async () => {
-  await saveBackup();
-  const packages = await outdated(true);
-  if (!packages.length) return;
+const smartUpdate = async (latest = true) => {
+  const versionDesc = 'the ' + (latest ? 'latest' : 'highest compatible') + ' version';
 
+  const packages = await outdated(latest);
+  if (!packages.length) {
+    info('All packages are at', versionDesc);
+    return;
+  }
+  info('Attempting to update', packages.length, 'packages to', versionDesc);
+
+  await saveBackup();
   type Status = 'green' | 'yellow' | 'red' | 'magenta' | undefined;
   const statuses: Map<string, Status> = new Map();
-  const withStatus = (s: Status) => packages.filter((p) => statuses.get(p) === s);
+  const withStatus = (s: Status) => packages.filter((p: string) => statuses.get(p) === s);
   const printStatuses = () =>
     console.info(
       'Upgrading:',
-      ...packages.map((p) => chalk[statuses.get(p) || 'white'](p))
+      ...packages.map((p: string) => chalk[statuses.get(p) || 'white'](p))
     );
 
-  const tryUpdate = async (suspects: string[], latest = true): Promise<boolean> => {
+  const tryUpdate = async (suspects: string[]): Promise<boolean> => {
     await up(suspects, latest);
     const passed = await test();
     passed ? await saveBackup() : await restoreBackup();
@@ -104,39 +110,31 @@ const smartUpdateAll = async () => {
       const others = suspects.splice(Math.floor(suspects.length / 2));
       // const others = suspects.filter((_, i) => i % 2 === 1);
       if (await tryUpdate(suspects)) {
-        suspects.forEach((p) => statuses.set(p, 'green'));
+        suspects.forEach((p: string) => statuses.set(p, 'green'));
       } else {
-        others.forEach((p) => statuses.delete(p));
+        others.forEach((p: string) => statuses.delete(p));
       }
     } else {
       const unknowns = withStatus(undefined);
       const newStatus = (await tryUpdate(unknowns)) ? 'green' : 'yellow';
-      unknowns.forEach((p) => statuses.set(p, newStatus));
+      unknowns.forEach((p: string) => statuses.set(p, newStatus));
     }
     // if only one package is suspected it must be the culprit
     const remainingSuspects = withStatus('yellow');
     if (remainingSuspects.length === 1) {
-      debug(
-        remainingSuspects[0],
-        'cannot be updated to latest version. Attempting compatible version update.'
-      );
-      statuses.set(
-        remainingSuspects[0],
-        // check if we can at least update it to a compatible version
-        (await tryUpdate(remainingSuspects, false)) ? 'magenta' : 'red'
-      );
+      (latest ? warn : error)(remainingSuspects[0], 'cannot be updated to', versionDesc);
+      statuses.set(remainingSuspects[0], latest ? 'magenta' : 'red');
     }
     printStatuses();
   }
-
-  await pnpm(['install-test']);
-  await deleteBackup();
 };
 
 info('Making sure dependencies are installed and tests work before we start');
 await preChecks();
 
-info('Attempting to update all packages to latest version');
-await smartUpdateAll();
+await smartUpdate(true);
+await smartUpdate(false);
+await pnpm(['install-test']);
+await deleteBackup();
 
 info('Update complete');
